@@ -116,7 +116,7 @@
       </v-row>
 
       <v-data-table
-        :items="items"
+        :items="products"
         :headers="headers"
         :search="search"
         :footer-props="{
@@ -136,12 +136,10 @@
                 <v-text-field
                   v-model="search"
                   append-icon="mdi-magnify"
-                  label="Поиск"
-                  single-line
-                  flat
+                  placeholder="Поиск"
                   dense
                   hide-details
-                ></v-text-field>
+                />
               </th>
             </tr>
           </thead>
@@ -166,9 +164,9 @@
           >
             {{
               h.summable
-                ? items
+                ? products
                     .filter((p) => p.type === groupProps.group)
-                    .reduce((acc, cur) => acc + (cur[h.value] || 0), 0)
+                    .reduce((acc, cur) => acc + (Number(cur[h.value]) || 0), 0)
                 : 'X'
             }}
           </td>
@@ -188,7 +186,10 @@
             >
               {{
                 h.summable
-                  ? items.reduce((acc, cur) => acc + (cur[h.value] || 0), 0)
+                  ? products.reduce(
+                      (acc, cur) => acc + (Number(cur[h.value]) || 0),
+                      0
+                    )
                   : 'X'
               }}
             </td>
@@ -203,7 +204,7 @@
               :class="{ [`text-${h.align}`]: true, 'px-0': h.value !== 'n' }"
             >
               <template v-if="h.value === 'n'">{{
-                item.name ? item.n : ''
+                Object.keys(item).length > 2 ? item.n : ''
               }}</template>
 
               <v-icon
@@ -211,20 +212,17 @@
                 small
                 @click="deleteItem(item)"
               >
-                {{item.SKU ? 'mdi-delete' : ''}}
+                {{ Object.keys(item).length > 2 ? 'mdi-delete' : '' }}
               </v-icon>
 
               <A-Autocomplete
                 v-else
-                v-model="products.filter((p) => p.SKU === item.SKU)[0][h.value]"
+                v-model="getItem(item)[h.value]"
                 hide-details
                 dense
                 :clearable="false"
-                :items="
-                  h.value === 'total'
-                    ? [item.amount * item.price, item.weight * item.price]
-                    : []
-                "
+                :align="h.align"
+                :items="getSuggestions(h.value, item)"
               />
             </td>
           </tr>
@@ -316,9 +314,6 @@ export default {
     labels: true,
     search: '',
     date: '',
-    pageStart: 0,
-    pageStop: 0,
-    itemsLength: 0,
     organization: '',
     subdivision: '',
     dateMenu: false,
@@ -335,7 +330,7 @@ export default {
       { label: 'Представитель администрации', position: '', fullname: '' },
     ],
     headers: [
-      { text: '№', value: 'n', align: 'end' },
+      { text: '№', value: 'n', align: 'end', sortable: false },
       { text: 'наименование', value: 'name' },
       { text: 'код', value: 'SKU', align: 'end' },
       { text: 'наименование', value: 'unitName', align: 'center' },
@@ -349,7 +344,7 @@ export default {
         align: 'end',
         summable: true,
       },
-      { text: 'Действия', value: 'actions', align: 'center' },
+      { text: 'Действия', value: 'actions', align: 'center', sortable: false },
     ],
     organizations: [
       { name: 'ООО "СОЛНЫШКО"', subdivisions: ['Столовая №1', 'Столовая №2'] },
@@ -365,10 +360,10 @@ export default {
         SKU: '1',
         unitName: 'кг',
         OKEI: '166',
-        weight: 20,
-        amount: 17,
-        price: 80,
-        total: 1600,
+        weight: '20',
+        amount: '17',
+        price: '80',
+        total: '1600',
       },
       {
         type: 'Товары',
@@ -376,10 +371,10 @@ export default {
         SKU: '2',
         unitName: 'кг',
         OKEI: '166',
-        weight: 5,
-        amount: 7,
-        price: 100,
-        total: 500,
+        weight: '5',
+        amount: '7',
+        price: '100',
+        total: '500',
       },
       {
         type: 'Товары',
@@ -387,10 +382,10 @@ export default {
         SKU: '3',
         unitName: 'кг',
         OKEI: '166',
-        weight: 4,
-        amount: 4,
-        price: 120,
-        total: 480,
+        weight: '4',
+        amount: '4',
+        price: '120',
+        total: '480',
       },
       {
         type: 'Товары',
@@ -398,10 +393,10 @@ export default {
         SKU: '4',
         unitName: 'кг',
         OKEI: '166',
-        weight: 5,
-        amount: 5,
-        price: 120,
-        total: 600,
+        weight: '5',
+        amount: '5',
+        price: '120',
+        total: '600',
       },
       {
         type: 'Товары',
@@ -409,10 +404,10 @@ export default {
         SKU: '5',
         unitName: 'кг',
         OKEI: '166',
-        weight: 3,
-        amount: 3,
-        price: 120,
-        total: 360,
+        weight: '3',
+        amount: '3',
+        price: '120',
+        total: '360',
       },
       {
         type: 'Тара',
@@ -420,16 +415,10 @@ export default {
         SKU: '403',
         unitName: 'шт',
         OKEI: '796',
-        weight: 1,
-        amount: 5,
-        price: 50,
-        total: 250,
-      },
-      {
-        type: 'Товары',
-      },
-      {
-        type: 'Тара',
+        weight: '1',
+        amount: '5',
+        price: '50',
+        total: '250',
       },
     ],
 
@@ -444,26 +433,70 @@ export default {
       { fullname: 'Деловой П.В.', position: 2 },
       { fullname: 'Веселова М.Н.', position: 3 },
     ],
+    units: {
+      шт: ['796'],
+      кг: ['166'],
+    },
+    types: ['Товары', 'Тара'],
   }),
-  computed: {
-    items() {
-      const n = {}
-      return this.products.map((p) => {
-        n[p.type] = (n[p.type] || 0) + 1
-
-        return {
-          ...p,
-          n: n[p.type],
+  watch: {
+    products() {
+      this.addEmptyIfNotExist()
+    },
+  },
+  mounted() {
+    this.recalculateNumbers()
+    this.addEmptyIfNotExist()
+  },
+  methods: {
+    addEmptyIfNotExist() {
+      const empty = this.products.reduce(
+        (acc, p) => {
+          acc[p.type] += Object.keys(p).length < 3
+          return acc
+        },
+        this.types.reduce((acc, t) => {
+          acc[t] = 0
+          return acc
+        }, {})
+      )
+      this.types.forEach((type) => {
+        if (empty[type] < 1) {
+          this.addItem(type)
         }
       })
     },
-  },
-  methods: {
+    recalculateNumbers() {
+      const n = {}
+      this.products.forEach((p) => {
+        n[p.type] = (n[p.type] || 0) + 1
+        if (p.n !== n[p.type]) p.n = n[p.type]
+      })
+    },
+    getItem(itemProps) {
+      return this.products.find(
+        (p) => p.n === itemProps.n && p.type === itemProps.type
+      )
+    },
     addItem(type) {
       this.products.push({ type })
+      this.recalculateNumbers()
     },
     deleteItem(item) {
-      this.products = this.products.filter((p) => p.SKU !== item.SKU)
+      this.products = this.products.filter(
+        (p) => p.n !== item.n || p.type !== item.type
+      )
+      this.recalculateNumbers()
+    },
+    getSuggestions(value, item) {
+      if (value === 'total')
+        return [
+          item.amount * item.price || '',
+          item.weight * item.price || '',
+        ].map(String)
+      if (value === 'unitName') return Object.keys(this.units)
+      if (value === 'OKEI') return this.units[item.unitName] || []
+      return []
     },
   },
 }

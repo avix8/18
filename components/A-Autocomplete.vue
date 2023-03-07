@@ -1,5 +1,5 @@
 <template>
-  <div style="width: 100%">
+  <div style="width: 100%" :class="`align-${align}`">
     <v-autocomplete
       v-if="filtered.length"
       v-model="selected"
@@ -23,6 +23,7 @@
       :outlined="outlined"
       :clearable="clearable"
       :disabled="disabled"
+
       :label="label"
       :value="value"
       @input="input"
@@ -34,6 +35,7 @@
 export default {
   props: {
     value: { type: String, default: '' },
+    align: { type: String, default: 'left' },
     label: { type: String, default: '' },
     clearable: { type: Boolean, default: true },
     outlined: { type: Boolean, default: false },
@@ -82,3 +84,21 @@ export default {
   },
 }
 </script>
+
+<style scoped>
+.align-start >>> input, .align-left >>> input {
+  text-align: left
+}
+
+.align-middle >>> input, .align-center >>> input {
+  text-align: center
+}
+
+.align-end >>> input, .align-right >>> input {
+  text-align: right
+}
+
+.v-input >>> input {
+  min-width: 0px !important;
+}
+</style>
