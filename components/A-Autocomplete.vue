@@ -66,7 +66,10 @@ export default {
   watch: {
     searchValue(val) {
       this.isSelecting = true
-      if (val !== null) this.$emit('input', val)
+      if (val !== null) {
+        this.$emit('input', val)
+        this.$emit('change')
+      }
       else this.selectValue()
     },
   },
@@ -76,6 +79,7 @@ export default {
     },
     input(val) {
       this.$emit('input', val || '')
+      this.$emit('change')
     },
     selectValue() {
       this.isSelecting = false
